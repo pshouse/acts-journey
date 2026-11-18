@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>First Missionary Journey</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+/* Layout: the map is the stage on the left; on the right an itinerarium (stations with the
+   distance between each) doubles as navigation, with the current station's account above it. */
+:root {
+  --page: #f1f4f2;
+  --panel: #fbfcfb;
+  --sea: #d9e6e8;
+  --lake: #c3d6da;
+  --land: #ece5d3;
+  --land-edge: #b3a88c;
+  --relief: #c4b99c;
+  --ink: #1b292d;
+  --muted: #586a6e;
+  --line: #d3dcda;
+  --out: #7a1f5c;      /* Tyrian purple: the outbound road */
+  --back: #9a5d12;     /* bronze: the road home */
+  --halo: rgba(241, 244, 242, .82);
+  --display: "Marcellus", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0e1618; --panel: #151f22; --sea: #122529; --lake: #183238; --land: #2c3531;
+    --land-edge: #55615a; --relief: #4b564f; --ink: #e7edeb; --muted: #97a7a8; --line: #26343a;
+    --out: #e29acb; --back: #e3ad5b; --halo: rgba(14, 22, 24, .78); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0e1618; --panel: #151f22; --sea: #122529; --lake: #183238; --land: #2c3531;
+  --land-edge: #55615a; --relief: #4b564f; --ink: #e7edeb; --muted: #97a7a8; --line: #26343a;
+  --out: #e29acb; --back: #e3ad5b; --halo: rgba(14, 22, 24, .78); color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--page); color: var(--ink);
+  font: 16px/1.55 var(--body);
+  padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+
+header { display: flex; flex-direction: column; gap: 6px; position: relative; }
+.prefs { display: flex; flex-wrap: wrap; gap: 8px; position: absolute; top: 0; right: 0; }
+.seg { display: flex; }
+.seg .btn { border-radius: 0; }
+.seg .btn:first-child { border-radius: 4px 0 0 4px; }
+.seg .btn:last-child { border-radius: 0 4px 4px 0; margin-left: -1px; }
+.seg .btn[aria-pressed="true"] { background: var(--ink); color: var(--page); border-color: var(--ink); }
+.eyebrow { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0; }
+h1 { font: 400 clamp(30px, 4.6vw, 46px)/1.1 var(--display); margin: 0; text-wrap: balance; }
+.dek { margin: 4px 0 0; max-width: 62ch; color: var(--muted); }
+
+main { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.stage { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.side { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+
+/* ---- map ---- */
+.map { display: block; width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--line); background: var(--sea); }
+.map .land { fill: var(--land); stroke: var(--land-edge); stroke-width: 1; stroke-linejoin: round; }
+.map .lake { fill: var(--lake); stroke: var(--land-edge); stroke-width: .6; }
+.map .relief { fill: none; stroke: var(--relief); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.map text { font-family: var(--body); fill: var(--muted); }
+.map .region { font-size: 11px; letter-spacing: .22em; text-anchor: middle; }
+.map .water { font-size: 14px; font-style: italic; letter-spacing: .08em; text-anchor: middle; }
+.map .feature { font-size: 11.5px; font-style: italic; text-anchor: middle; }
+.map .scale line { stroke: var(--muted); stroke-width: 1.2; }
+.map .scale text { font-size: 11px; text-anchor: middle; font-variant-numeric: tabular-nums; }
+
+.route { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.route.out { stroke: var(--out); }
+.route.back { stroke: var(--back); }
+.route.sea { stroke-dasharray: 2 8; }
+.route.ghost { opacity: .28; stroke-width: 2; }
+
+.place { cursor: pointer; outline: none; }
+.place circle.dot { fill: var(--panel); stroke: var(--ink); stroke-width: 1.6; }
+.place.visited circle.dot { fill: var(--ink); }
+.place circle.ring { fill: none; stroke: var(--ink); stroke-width: 1.4; opacity: 0; }
+.place.current circle.ring { opacity: 1; }
+.place:focus-visible circle.ring { opacity: 1; stroke: var(--out); stroke-width: 2.4; }
+.place text { font: 15px var(--display); fill: var(--ink); paint-order: stroke; stroke: var(--halo); stroke-width: 4px; stroke-linejoin: round; }
+.place:hover text { text-decoration: underline; }
+.traveller { fill: var(--out); stroke: var(--panel); stroke-width: 2.5; pointer-events: none; }
+.traveller.back { fill: var(--back); }
+
+/* ---- controls under the map ---- */
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.btns { display: flex; gap: 6px; }
+button { font: inherit; color: inherit; }
+.btn {
+  border: 1px solid var(--line); background: var(--panel); border-radius: 4px;
+  padding: 7px 14px; font-weight: 600; font-size: 14px; cursor: pointer; min-height: 38px;
+}
+.btn:hover:not(:disabled) { border-color: var(--ink); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.primary { background: var(--ink); color: var(--page); border-color: var(--ink); min-width: 86px; }
+:focus-visible { outline: 2px solid var(--out); outline-offset: 2px; }
+.counter { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-left: auto; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 22px; height: 0; border-top: 3px solid var(--out); }
+.legend i.back { border-top-color: var(--back); }
+.legend i.sea { border-top: 3px dotted var(--muted); }
+
+.company { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; font-size: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.company .lbl { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.company .who { font-weight: 600; }
+.company .who.gone { font-weight: 400; color: var(--muted); text-decoration: line-through; }
+.company .note { color: var(--muted); }
+
+/* ---- account of the current station ---- */
+.account { display: flex; flex-direction: column; gap: 10px; min-height: 19em; }
+.account .ref { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0; font-variant-numeric: tabular-nums; }
+.account h2 { font: 400 30px/1.15 var(--display); margin: 0; text-wrap: balance; }
+.account .where { margin: 0; font-size: 14px; color: var(--muted); }
+.account .text { margin: 0; max-width: 60ch; }
+.account blockquote { margin: 2px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--out); font: 400 18px/1.4 var(--display); max-width: 34em; }
+.account.back blockquote { border-left-color: var(--back); }
+.account blockquote cite { display: block; font: 13px var(--body); color: var(--muted); font-style: normal; margin-top: 4px; }
+.account .leg { margin: 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ---- itinerarium ---- */
+.itin h3 { font: 600 12px var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+.itin ol { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.itin li { border-bottom: 1px solid var(--line); }
+.itin button {
+  display: grid; grid-template-columns: 1.6em minmax(0, 1fr) auto; align-items: baseline; gap: 8px;
+  width: 100%; text-align: left; background: none; border: 0; padding: 8px 6px; cursor: pointer;
+}
+.itin button:hover { background: var(--panel); }
+.itin .n { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.itin .name { font-weight: 600; }
+.itin .name small { font-weight: 400; color: var(--muted); font-size: 13px; margin-left: 6px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.itin .km { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.itin li.done .name { color: var(--muted); }
+.itin li.now button { background: var(--panel); box-shadow: inset 3px 0 0 var(--out); }
+.itin li.now.back button { box-shadow: inset 3px 0 0 var(--back); }
+.itin .total { margin: 10px 0 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+footer { font-size: 13px; color: var(--muted); max-width: 80ch; border-top: 1px solid var(--line); padding-top: 14px; }
+footer p { margin: 0 0 6px; }
+a { color: inherit; text-decoration: underline; text-decoration-color: var(--out); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { color: var(--out); }
+
+@media (max-width: 860px) {
+  main { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .stage { position: static; }
+  .prefs { position: static; margin-bottom: 8px; }
+  .account { min-height: 0; }
+  .legend { margin-left: 0; }
+}
+@media (max-width: 600px) {
+  .map .region { font-size: 19px; letter-spacing: .14em; }
+  .map .water { font-size: 22px; }
+  .map .feature { font-size: 19px; }
+  .map .scale text { font-size: 19px; }
+  .place text { font-size: 27px; stroke-width: 6px; }
+  .place circle.dot { r: 9px; stroke-width: 2.4; }
+  .place circle.ring { r: 16px; stroke-width: 2.2; }
+  .traveller { r: 11px; stroke-width: 3.5; }
+  .route { stroke-width: 5; }
+  .route.ghost { stroke-width: 3.5; }
+  .route.sea { stroke-dasharray: 3 12; }
+  .account h2 { font-size: 26px; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="prefs">
+      <div class="seg" role="group" aria-label="Distance units">
+        <button class="btn" id="unitMi" type="button" aria-pressed="true">Miles</button>
+        <button class="btn" id="unitKm" type="button" aria-pressed="false">Km</button>
+      </div>
+      <button class="btn" id="theme" type="button">Dark mode</button>
+    </div>
+    <p class="eyebrow">Acts 13–14</p>
+    <h1>The First Missionary Journey</h1>
+    <p class="dek">Barnabas and Saul are sent out from Antioch in Syria, cross Cyprus, climb into the highlands of Asia Minor, and come home by the way they went. Step through the journey, or select any place on the map.</p>
+  </header>
+
+  <main>
+    <section class="stage" aria-label="Map of the journey">
+      <svg class="map" id="map" viewBox="0 0 1000 757" role="group" aria-label="Map of Cyprus, southern Asia Minor and Syria showing the route">
+        <path class="land" d="__LAND__"/>
+        <path class="lake" d="__LAKE1__"/>
+        <path class="lake" d="__LAKE2__"/>
+        <g id="relief"></g>
+        <g id="labels"></g>
+        <g class="scale" id="scale" transform="translate(40 722)"></g>
+        <g id="ghosts"></g>
+        <g id="routes"></g>
+        <g id="places"></g>
+        <circle class="traveller" id="traveller" r="7"/>
+      </svg>
+
+      <div class="controls">
+        <div class="btns">
+          <button class="btn" id="prev" type="button">Back</button>
+          <button class="btn primary" id="play" type="button">Play</button>
+          <button class="btn" id="next" type="button">Next</button>
+        </div>
+        <span class="counter" id="counter"></span>
+        <div class="legend" aria-hidden="true">
+          <span><i></i>Outbound</span><span><i class="back"></i>Return</span><span><i class="sea"></i>By sea</span>
+        </div>
+      </div>
+
+      <div class="company" id="company" aria-live="polite"></div>
+    </section>
+
+    <section class="side">
+      <article class="account" id="account" aria-live="polite"></article>
+      <nav class="itin" aria-label="Itinerary">
+        <h3>Itinerary</h3>
+        <ol id="itin"></ol>
+        <p class="total" id="total"></p>
+      </nav>
+    </section>
+  </main>
+
+  <footer>
+    <p>Scripture quotations are from the ESV® Bible (The Holy Bible, English Standard Version®), © 2001 by Crossway, a publishing ministry of Good News Publishers. Used by permission. All rights reserved. Narrative summaries follow <a href="https://www.biblegateway.com/passage/?search=Acts%2013-14&amp;version=ESV" target="_blank" rel="noopener">Acts 13:1–14:28</a>. Scripture references open the passage on Bible Gateway in a new tab.</p>
+    <p>Travel times assume about 20 miles (30 km) a day on foot and 75 miles (120 km) a day under sail with a fair wind. They cover time on the move only. Acts gives no dates and few durations for the stays; the whole journey is usually dated to about AD 46–48 and reckoned at one to two years.</p>
+    <p>Roads and sea lanes are drawn as plausible lines between the places Acts names, so distances are approximate. The sites of Lystra and Derbe are identified from inscriptions and are less certain than the others. Coastline from Natural Earth.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var LON0 = 29.6, LAT1 = 38.8, KX = 1000 / 7.4, KY = KX / Math.cos(36.55 * Math.PI / 180);
+  var NS = 'http://www.w3.org/2000/svg';
+  function P(ll) { return [(ll[1] - LON0) * KX, (LAT1 - ll[0]) * KY]; }
+  function el(name, attrs, parent) {
+    var e = document.createElementNS(NS, name);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+
+  // Places named in Acts 13–14. Label offsets are in map units.
+  var PLACES = {
+    antioch:  { name: 'Antioch',            ll: [36.20, 36.16], lab: [0, -15, 'middle'] },
+    seleucia: { name: 'Seleucia',           ll: [36.12, 35.93], lab: [-12, 19, 'end'] },
+    salamis:  { name: 'Salamis',            ll: [35.18, 33.90], lab: [13, 5, 'start'] },
+    paphos:   { name: 'Paphos',             ll: [34.76, 32.41], lab: [-13, 5, 'end'] },
+    perga:    { name: 'Perga',              ll: [36.96, 30.85], lab: [12, -9, 'start'] },
+    attalia:  { name: 'Attalia',            ll: [36.89, 30.70], lab: [-12, 17, 'end'] },
+    pisidian: { name: 'Antioch of Pisidia', ll: [38.31, 31.19], lab: [0, -15, 'middle'] },
+    iconium:  { name: 'Iconium',            ll: [37.87, 32.49], lab: [13, -4, 'start'] },
+    lystra:   { name: 'Lystra',             ll: [37.58, 32.35], lab: [-13, 14, 'end'] },
+    derbe:    { name: 'Derbe',              ll: [37.35, 33.36], lab: [13, 5, 'start'] }
+  };
+
+  var STEPS = [
+    { at: 'antioch', title: 'Antioch in Syria', ref: 'Acts 13:1–3', where: 'Syria · modern Antakya, Türkiye',
+      text: 'The church at Antioch has five prophets and teachers: Barnabas, Simeon called Niger, Lucius of Cyrene, Manaen and Saul. While they are worshipping and fasting, the Holy Spirit tells them to set apart Barnabas and Saul. The church fasts, prays, lays hands on the two and sends them off.',
+      quote: 'Set apart for me Barnabas and Saul for the work to which I have called them.', qref: 'Acts 13:2' },
+    { at: 'seleucia', title: 'Seleucia', ref: 'Acts 13:4', where: 'Syria · near modern Samandağ, Türkiye', mode: 'road',
+      path: [[36.20, 36.16], [36.12, 35.93]],
+      text: 'Seleucia is Antioch’s seaport, near the mouth of the Orontes. They go down to the coast and take ship for Cyprus, the island Barnabas comes from (Acts 4:36).',
+      quote: 'So, being sent out by the Holy Spirit, they went down to Seleucia, and from there they sailed to Cyprus.', qref: 'Acts 13:4' },
+    { at: 'salamis', title: 'Salamis', ref: 'Acts 13:5', where: 'Cyprus · near modern Famagusta', mode: 'sea',
+      path: [[36.12, 35.93], [35.62, 34.9], [35.18, 33.90]],
+      text: 'They land on the east coast of Cyprus and proclaim the word of God in the Jewish synagogues. John, also called Mark, is with them as their helper.',
+      quote: 'When they arrived at Salamis, they proclaimed the word of God in the synagogues of the Jews. And they had John to assist them.', qref: 'Acts 13:5' },
+    { at: 'paphos', title: 'Paphos', ref: 'Acts 13:6–12', where: 'Cyprus · modern Paphos', mode: 'road',
+      path: [[35.18, 33.90], [35.05, 33.5], [34.80, 33.05], [34.74, 32.70], [34.76, 32.41]],
+      text: 'They cross the whole island to Paphos, seat of the Roman proconsul Sergius Paulus, who asks to hear the word of God. A magician and false prophet named Bar-Jesus, or Elymas, tries to turn him away from the faith. Saul, from here on called Paul, rebukes him, and Elymas is struck blind for a time. The proconsul believes.',
+      quote: 'Then the proconsul believed, when he saw what had occurred, for he was astonished at the teaching of the Lord.', qref: 'Acts 13:12' },
+    { at: 'perga', title: 'Perga', ref: 'Acts 13:13', where: 'Pamphylia · near modern Antalya, Türkiye', mode: 'sea',
+      path: [[34.76, 32.41], [35.9, 31.5], [36.82, 30.95], [36.96, 30.85]],
+      text: 'Paul and his company sail north to the mainland and come to Perga in Pamphylia. Here John leaves them and goes back to Jerusalem. Acts gives no reason, but the parting later divides Paul and Barnabas (Acts 15:37–39).',
+      quote: 'And John left them and returned to Jerusalem.', qref: 'Acts 13:13' },
+    { at: 'pisidian', title: 'Antioch of Pisidia', ref: 'Acts 13:14–52', where: 'Province of Galatia · modern Yalvaç, Türkiye', mode: 'road',
+      path: [[36.96, 30.85], [37.45, 30.88], [37.9, 31.08], [38.31, 31.19]],
+      text: 'They climb through the Taurus to Antioch. On the Sabbath the synagogue rulers invite a word, and Paul preaches the longest sermon of the journey: Israel’s story from Egypt to David, then Jesus, crucified and raised, through whom forgiveness of sins is proclaimed. The next Sabbath almost the whole city gathers. When some of the Jews contradict him, Paul and Barnabas turn to the Gentiles, many of whom believe. The leading citizens are stirred up and drive the two out of the district.',
+      quote: 'I have made you a light for the Gentiles, that you may bring salvation to the ends of the earth.', qref: 'Acts 13:47, quoting Isaiah 49:6',
+      stay: 'Time here: at least two Sabbaths (Acts 13:14 and Acts 13:44), and long enough for the word to spread through the whole region (Acts 13:49).' },
+    { at: 'iconium', title: 'Iconium', ref: 'Acts 14:1–7', where: 'Province of Galatia · modern Konya, Türkiye', mode: 'road',
+      path: [[38.31, 31.19], [38.12, 31.85], [37.87, 32.49]],
+      text: 'In the synagogue a great number of both Jews and Greeks believe. They stay a long time, speaking boldly, and the Lord confirms the message with signs and wonders. The city splits in two, and when a plot forms to mistreat and stone them they flee to the towns of Lycaonia.',
+      quote: 'So they remained for a long time, speaking boldly for the Lord, who bore witness to the word of his grace, granting signs and wonders to be done by their hands.', qref: 'Acts 14:3',
+      stay: 'Time here: “a long time” (Acts 14:3).' },
+    { at: 'lystra', title: 'Lystra', ref: 'Acts 14:8–20', where: 'Lycaonia · near modern Hatunsaray, Türkiye', mode: 'road',
+      path: [[37.87, 32.49], [37.58, 32.35]],
+      text: 'Paul heals a man lame from birth. The crowd shouts in Lycaonian that the gods have come down, calling Barnabas Zeus and Paul Hermes, and the priest of Zeus brings oxen and garlands to sacrifice. The apostles tear their clothes and barely stop them, pointing to the living God who made heaven and earth. Then Jews from Antioch and Iconium win over the crowd. Paul is stoned and dragged out of the city for dead; he gets up and goes back in.',
+      quote: 'We also are men, of like nature with you, and we bring you good news, that you should turn from these vain things to a living God, who made the heaven and the earth and the sea and all that is in them.', qref: 'Acts 14:15' },
+    { at: 'derbe', title: 'Derbe', ref: 'Acts 14:20–21', where: 'Lycaonia · probably Kerti Höyük, near Karaman, Türkiye', mode: 'road',
+      path: [[37.58, 32.35], [37.42, 32.85], [37.35, 33.36]],
+      text: 'The next day they leave for Derbe, the farthest point of the journey. They preach the gospel and make many disciples. Acts records no opposition here.',
+      quote: 'When they had preached the gospel to that city and had made many disciples…', qref: 'Acts 14:21',
+      stay: 'They set out the day after the stoning at Lystra (Acts 14:20).' },
+    { at: 'pisidian', title: 'Back through Lystra, Iconium and Antioch', short: 'Lystra, Iconium, Antioch', ref: 'Acts 14:21–23', where: 'Lycaonia and the province of Galatia', mode: 'road', back: true,
+      segs: [[[37.35, 33.36], [37.51, 32.88], [37.58, 32.35]], [[37.58, 32.35], [37.74, 32.36], [37.87, 32.49]], [[37.87, 32.49], [38.06, 31.82], [38.31, 31.19]]],
+      text: 'A road east from Derbe leads through Cilicia toward Syria. Instead they turn around and go back through the towns that drove them out. They strengthen the disciples, urge them to continue in the faith, and with prayer and fasting appoint elders in every church.',
+      quote: 'Through many tribulations we must enter the kingdom of God.', qref: 'Acts 14:22' },
+    { at: 'perga', title: 'Perga again', short: 'Perga', ref: 'Acts 14:24–25', where: 'Pamphylia · near modern Antalya, Türkiye', mode: 'road', back: true,
+      path: [[38.31, 31.19], [37.88, 31.22], [37.45, 31.02], [36.96, 30.85]],
+      text: 'They pass through Pisidia and come down into Pamphylia. On the way out Acts records only John’s departure at Perga. This time they preach the word there.',
+      quote: 'And when they had spoken the word in Perga, they went down to Attalia…', qref: 'Acts 14:25' },
+    { at: 'attalia', title: 'Attalia', ref: 'Acts 14:25–26', where: 'Pamphylia · modern Antalya, Türkiye', mode: 'road', back: true,
+      path: [[36.96, 30.85], [36.89, 30.70]],
+      text: 'They go down to the harbour at Attalia and find a ship bound for Syria.',
+      quote: 'From there they sailed to Antioch, where they had been commended to the grace of God for the work that they had fulfilled.', qref: 'Acts 14:26' },
+    { at: 'antioch', title: 'Home to Antioch', short: 'Antioch in Syria', ref: 'Acts 14:26–28', where: 'Syria · modern Antakya, Türkiye', mode: 'sea', back: true,
+      path: [[36.89, 30.70], [36.55, 31.0], [35.95, 32.2], [35.85, 33.0], [35.98, 34.6], [36.05, 35.6], [36.12, 35.93], [36.20, 36.16]],
+      text: 'Back in the church that sent them, they gather everyone and report all that God has done with them. They stay a long time with the disciples.',
+      quote: 'They declared all that God had done with them, and how he had opened a door of faith to the Gentiles.', qref: 'Acts 14:27',
+      stay: 'Time here: “no little time” (Acts 14:28).' }
+  ];
+
+  // ---------- geometry ----------
+  function spline(pts) {                       // Catmull-Rom through lat/lon waypoints
+    if (pts.length < 3) {
+      var o = [];
+      for (var k = 0; k <= 12; k++) o.push([pts[0][0] + (pts[1][0] - pts[0][0]) * k / 12, pts[0][1] + (pts[1][1] - pts[0][1]) * k / 12]);
+      return o;
+    }
+    var out = [pts[0]];
+    for (var i = 0; i < pts.length - 1; i++) {
+      var p0 = pts[Math.max(i - 1, 0)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(i + 2, pts.length - 1)];
+      for (var s = 1; s <= 16; s++) {
+        var t = s / 16, t2 = t * t, t3 = t2 * t, pt = [0, 0];
+        for (var c = 0; c < 2; c++) {
+          pt[c] = 0.5 * (2 * p1[c] + (p2[c] - p0[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t2 + (3 * p1[c] - p0[c] - 3 * p2[c] + p3[c]) * t3);
+        }
+        out.push(pt);
+      }
+    }
+    return out;
+  }
+  function haversine(a, b) {
+    var r = Math.PI / 180, dla = (b[0] - a[0]) * r, dlo = (b[1] - a[1]) * r;
+    var h = Math.sin(dla / 2) * Math.sin(dla / 2) + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dlo / 2) * Math.sin(dlo / 2);
+    return 2 * 6371 * Math.asin(Math.sqrt(h));
+  }
+  function dOf(xy) { return 'M' + xy.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join('L'); }
+  function round5(km) { return Math.max(5, Math.round(km / 5) * 5); }
+
+  var ghosts = document.getElementById('ghosts'), routes = document.getElementById('routes');
+  var seaKm = 0, totalKm = 0, totalDays = 0;
+  STEPS.forEach(function (s, i) {
+    s.place = PLACES[s.at];
+    if (!s.path && !s.segs) { s.raw = 0; return; }
+    var ll = s.segs ? [].concat.apply([], s.segs.map(spline)) : spline(s.path);
+    s.xy = ll.map(P);
+    s.cum = [0];
+    var km = 0;
+    for (var j = 1; j < ll.length; j++) {
+      km += haversine(ll[j - 1], ll[j]);
+      s.cum.push(s.cum[j - 1] + Math.hypot(s.xy[j][0] - s.xy[j - 1][0], s.xy[j][1] - s.xy[j - 1][1]));
+    }
+    s.raw = km;
+    s.days = km / (s.mode === 'sea' ? 120 : 30);          // 30 km a day on foot, 120 km a day under sail
+    totalDays += s.days;
+    var nd = Math.round(s.days);
+    s.dayTxt = (s.days < 0.7 ? 'less than a day' : 'about ' + nd + (nd === 1 ? ' day' : ' days')) + (s.mode === 'sea' ? ' under sail' : ' on foot');
+    s.dayShort = s.days < 0.7 ? '<1 d' : nd + ' d';
+    totalKm += km; if (s.mode === 'sea') seaKm += km;
+    var cls = 'route ' + (s.back ? 'back' : 'out') + (s.mode === 'sea' ? ' sea' : '');
+    el('path', { 'class': cls + ' ghost', d: dOf(s.xy) }, ghosts);
+    s.live = el('path', { 'class': cls, d: '' }, routes);
+  });
+
+  function partial(s, t) {
+    var target = s.cum[s.cum.length - 1] * t, pts = [s.xy[0]];
+    for (var j = 1; j < s.xy.length; j++) {
+      if (s.cum[j] <= target) { pts.push(s.xy[j]); continue; }
+      var f = (target - s.cum[j - 1]) / ((s.cum[j] - s.cum[j - 1]) || 1);
+      pts.push([s.xy[j - 1][0] + (s.xy[j][0] - s.xy[j - 1][0]) * f, s.xy[j - 1][1] + (s.xy[j][1] - s.xy[j - 1][1]) * f]);
+      break;
+    }
+    return pts;
+  }
+
+  // ---------- static map furniture ----------
+  (function relief() {
+    var g = document.getElementById('relief'), seed = 7;
+    function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+    var spine = [[37.2, 30.1], [37.45, 30.9], [37.25, 31.7], [36.85, 32.4], [36.72, 33.2], [36.98, 34.0], [37.35, 34.7], [37.8, 35.4]];
+    var d = '';
+    function peak(lat, lon, w) {
+      var p = P([lat, lon]);
+      d += 'M' + (p[0] - w).toFixed(1) + ',' + (p[1] + w * 0.6).toFixed(1) + 'L' + p[0].toFixed(1) + ',' + (p[1] - w * 0.7).toFixed(1) + 'L' + (p[0] + w).toFixed(1) + ',' + (p[1] + w * 0.6).toFixed(1);
+    }
+    for (var i = 0; i < spine.length - 1; i++) {
+      for (var k = 0; k < 9; k++) {
+        var t = (k + rnd() * 0.6) / 9;
+        peak(spine[i][0] + (spine[i + 1][0] - spine[i][0]) * t + (rnd() - 0.5) * 0.34,
+             spine[i][1] + (spine[i + 1][1] - spine[i][1]) * t, 5 + rnd() * 4);
+      }
+    }
+    [[34.93, 32.86], [34.9, 32.7], [34.97, 33.02], [34.86, 32.93]].forEach(function (m) { peak(m[0], m[1], 6); });  // Troodos
+    el('path', { 'class': 'relief', d: d }, g);
+  })();
+
+  (function labels() {
+    var g = document.getElementById('labels');
+    function t(cls, lat, lon, str) { var p = P([lat, lon]); el('text', { 'class': cls, x: p[0], y: p[1] }, g).textContent = str; }
+    t('region', 35.24, 33.05, 'CYPRUS');
+    t('region', 36.86, 31.58, 'PAMPHYLIA');
+    t('region', 37.78, 30.25, 'PISIDIA');
+    t('region', 37.72, 33.7, 'LYCAONIA');
+    t('region', 38.58, 33.0, 'GALATIA');
+    t('region', 37.05, 35.1, 'CILICIA');
+    t('region', 35.55, 36.5, 'SYRIA');
+    t('water', 35.35, 30.75, 'Mediterranean Sea');
+    t('feature', 36.5, 33.15, 'Taurus Mountains');
+  })();
+
+  var placesG = document.getElementById('places');
+  Object.keys(PLACES).forEach(function (id) {
+    var pl = PLACES[id], p = P(pl.ll);
+    pl.g = el('g', { 'class': 'place', transform: 'translate(' + p[0].toFixed(1) + ' ' + p[1].toFixed(1) + ')', tabindex: '0', role: 'button', 'aria-label': pl.name }, placesG);
+    el('circle', { 'class': 'ring', r: 11 }, pl.g);
+    el('circle', { 'class': 'dot', r: 5.5 }, pl.g);
+    pl.text = el('text', { 'text-anchor': pl.lab[2] }, pl.g);
+    pl.text.textContent = pl.name;
+    function go() {
+      var first = -1, after = -1;
+      STEPS.forEach(function (s, i) { if (s.at === id) { if (first < 0) first = i; if (after < 0 && i > cur) after = i; } });
+      stop(); show(after >= 0 ? after : first, false);
+    }
+    pl.g.addEventListener('click', go);
+    pl.g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+  var narrow = window.matchMedia('(max-width: 600px)');
+  function placeLabels() {
+    var k = narrow.matches ? 1.7 : 1;
+    Object.keys(PLACES).forEach(function (id) {
+      var pl = PLACES[id];
+      pl.text.setAttribute('x', pl.lab[0] * k);
+      pl.text.setAttribute('y', pl.lab[1] * k);
+    });
+  }
+  placeLabels();
+  if (narrow.addEventListener) narrow.addEventListener('change', placeLabels);
+
+  // ---------- itinerary ----------
+  var itin = document.getElementById('itin');
+  STEPS.forEach(function (s, i) {
+    var li = document.createElement('li'), b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = '<span class="n">' + (i + 1) + '</span><span class="name"></span><span class="km"></span>';
+    b.children[1].textContent = s.short || s.title;
+    var sm = document.createElement('small'); sm.textContent = s.ref.replace('Acts ', ''); b.children[1].appendChild(sm);
+    s.kmEl = b.children[2];
+    b.addEventListener('click', function () { stop(); show(i, false); });
+    li.appendChild(b); itin.appendChild(li); s.li = li;
+  });
+
+  // ---------- units ----------
+  var unit = 'mi', unitMi = document.getElementById('unitMi'), unitKm = document.getElementById('unitKm');
+  try { if (localStorage.getItem('units') === 'km') unit = 'km'; } catch (e) {}
+  function applyUnits() {
+    var f = unit === 'mi' ? 0.621371 : 1, run = 0;
+    STEPS.forEach(function (s, i) {
+      s.km = i ? round5(s.raw * f) : 0; run += s.km; s.sofar = run;
+      s.kmEl.textContent = i ? (s.mode === 'sea' ? 'sea ' : 'road ') + s.km + ' ' + unit + ' · ' + s.dayShort : 'start';
+    });
+    document.getElementById('total').textContent = 'About ' + (Math.round(run / 50) * 50).toLocaleString('en') + ' ' +
+      (unit === 'mi' ? 'miles' : 'km') + ' as drawn, roughly ' + Math.round(seaKm / totalKm * 100) + '% of it by sea. Roughly ' + Math.round(totalDays / 5) * 5 + ' days of travel, not counting the stays.';
+    var perKm = KX / (111.32 * Math.cos(36.55 * Math.PI / 180));
+    var L = (unit === 'mi' ? 50 * 1.609344 : 100) * perKm, h = (L / 2).toFixed(1);
+    L = L.toFixed(1);
+    document.getElementById('scale').innerHTML = '<line x1="0" y1="0" x2="' + L + '" y2="0"/><line x1="0" y1="-5" x2="0" y2="5"/>' +
+      '<line x1="' + h + '" y1="-3" x2="' + h + '" y2="3"/><line x1="' + L + '" y1="-5" x2="' + L + '" y2="5"/>' +
+      '<text x="' + h + '" y="-9">' + (unit === 'mi' ? '50 mi' : '100 km') + '</text>';
+    unitMi.setAttribute('aria-pressed', unit === 'mi'); unitKm.setAttribute('aria-pressed', unit === 'km');
+  }
+  function setUnit(u) { unit = u; try { localStorage.setItem('units', u); } catch (e) {} applyUnits(); panels(cur); }
+  unitMi.addEventListener('click', function () { setUnit('mi'); });
+  unitKm.addEventListener('click', function () { setUnit('km'); });
+
+  // ---------- theme ----------
+  var root = document.documentElement, themeB = document.getElementById('theme');
+  var darkMq = window.matchMedia('(prefers-color-scheme: dark)');
+  function isDark() { var t = root.getAttribute('data-theme'); return t ? t === 'dark' : darkMq.matches; }
+  function syncTheme() { themeB.textContent = isDark() ? 'Light mode' : 'Dark mode'; }
+  try { var saved = localStorage.getItem('theme'); if (saved === 'light' || saved === 'dark') root.setAttribute('data-theme', saved); } catch (e) {}
+  themeB.addEventListener('click', function () {
+    var n = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', n);
+    try { localStorage.setItem('theme', n); } catch (e) {}
+    syncTheme();
+  });
+  if (darkMq.addEventListener) darkMq.addEventListener('change', syncTheme);
+  syncTheme();
+
+  // ---------- state ----------
+  var cur = 0, raf = 0, timer = 0, playing = false;
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var traveller = document.getElementById('traveller'), account = document.getElementById('account');
+  var company = document.getElementById('company'), counter = document.getElementById('counter');
+  var prevB = document.getElementById('prev'), nextB = document.getElementById('next'), playB = document.getElementById('play');
+
+  function refUrl(r) { return 'https://www.biblegateway.com/passage/?search=' + encodeURIComponent(r.replace(/–/g, '-')) + '&version=ESV'; }
+  function linkify(s) {
+    return esc(s).replace(/(?:Acts|Isaiah) \d+:\d+(?:–\d+(?::\d+)?)?/g, function (m) {
+      return '<a href="' + refUrl(m) + '" target="_blank" rel="noopener">' + m + '</a>';
+    });
+  }
+  function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  function panels(i) {
+    var s = STEPS[i], from = i ? STEPS[i - 1] : null;
+    var leg = from
+      ? 'From ' + (i === 9 ? 'Derbe' : from.place.name) + ' by ' + s.mode + ', about ' + s.km + ' ' + (unit === 'mi' ? 'miles' : 'km') + ', ' + s.dayTxt + '. About ' + s.sofar.toLocaleString('en') + ' ' + (unit === 'mi' ? 'miles' : 'km') + ' travelled so far.'
+      : 'The journey begins and ends here.';
+    account.className = 'account' + (s.back ? ' back' : '');
+    account.innerHTML = '<p class="ref">' + linkify(s.ref) + '</p><h2>' + esc(s.title) + '</h2><p class="where">' + esc(s.where) + '</p>' +
+      '<p class="text">' + linkify(s.text) + '</p><blockquote>' + esc(s.quote) + '<cite>' + linkify(s.qref) + ', ESV</cite></blockquote>' +
+      '<p class="leg">' + esc(leg) + '</p>' + (s.stay ? '<p class="leg">' + linkify(s.stay) + '</p>' : '');
+
+    var h = '<span class="lbl">Travelling</span><span class="who">Barnabas</span>';
+    h += i < 3 ? '<span class="who">Saul</span>' : '<span class="who">Paul</span>';
+    h += i < 4 ? '<span class="who">John Mark</span>' : '<span class="who gone">John Mark</span>';
+    if (i === 3) h += '<span class="note">' + linkify('Saul is called Paul from here on (Acts 13:9).') + '</span>';
+    else if (i === 4) h += '<span class="note">' + linkify('John returns to Jerusalem (Acts 13:13).') + '</span>';
+    company.innerHTML = h;
+
+    counter.textContent = 'Stop ' + (i + 1) + ' of ' + STEPS.length;
+    prevB.disabled = i === 0; nextB.disabled = i === STEPS.length - 1;
+    STEPS.forEach(function (st, j) {
+      st.li.className = (j < i ? 'done' : j === i ? 'now' : '') + (st.back ? ' back' : '');
+      if (j === i) st.li.firstChild.setAttribute('aria-current', 'step'); else st.li.firstChild.removeAttribute('aria-current');
+    });
+    var seen = {};
+    for (var j = 0; j <= i; j++) seen[STEPS[j].at] = true;
+    if (i >= 9) { seen.lystra = seen.iconium = true; }
+    Object.keys(PLACES).forEach(function (id) {
+      PLACES[id].g.setAttribute('class', 'place' + (seen[id] ? ' visited' : '') + (id === s.at ? ' current' : ''));
+    });
+    traveller.setAttribute('class', 'traveller' + (s.back ? ' back' : ''));
+  }
+  function moveTo(xy) { traveller.setAttribute('cx', xy[0].toFixed(1)); traveller.setAttribute('cy', xy[1].toFixed(1)); }
+
+  function show(i, animate, done) {
+    cancelAnimationFrame(raf);
+    cur = i;
+    var s = STEPS[i];
+    STEPS.forEach(function (st, j) { if (st.live) st.live.setAttribute('d', j <= i && !(animate && j === i) ? dOf(st.xy) : ''); });
+    panels(i);
+    if (!animate || !s.xy || reduce.matches) {
+      if (s.live) s.live.setAttribute('d', dOf(s.xy));
+      moveTo(P(s.place.ll));
+      if (done) done();
+      return;
+    }
+    var t0 = null, dur = Math.min(2600, 800 + s.raw * 4.5);
+    function frame(now) {
+      if (t0 === null) t0 = now;
+      var t = Math.min(1, (now - t0) / dur), e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      var pts = partial(s, e);
+      s.live.setAttribute('d', dOf(pts));
+      moveTo(pts[pts.length - 1]);
+      if (t < 1) raf = requestAnimationFrame(frame);
+      else { s.live.setAttribute('d', dOf(s.xy)); moveTo(P(s.place.ll)); if (done) done(); }
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  function stop() { playing = false; clearTimeout(timer); playB.textContent = 'Play'; }
+  function advance() {
+    if (!playing) return;
+    if (cur >= STEPS.length - 1) { stop(); return; }
+    show(cur + 1, true, function () { timer = setTimeout(advance, cur >= STEPS.length - 1 ? 0 : 3200); });
+  }
+  playB.addEventListener('click', function () {
+    if (playing) { stop(); return; }
+    playing = true; playB.textContent = 'Pause';
+    if (cur >= STEPS.length - 1) { show(0, false); timer = setTimeout(advance, 1200); } else advance();
+  });
+  nextB.addEventListener('click', function () { stop(); if (cur < STEPS.length - 1) show(cur + 1, true); });
+  prevB.addEventListener('click', function () { stop(); if (cur > 0) show(cur - 1, false); });
+  document.addEventListener('keydown', function (e) {
+    if (e.target.closest && e.target.closest('input, textarea, select')) return;
+    if (e.key === 'ArrowRight') { e.preventDefault(); nextB.click(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); prevB.click(); }
+  });
+
+  var hot = window.claude && window.claude.hot;
+  if (hot && hot.snapshot) hot.snapshot(function () { return { step: cur }; });
+  applyUnits();
+  function start(data) { show(Math.min(STEPS.length - 1, Math.max(0, (data && data.step) | 0)), false); }
+  if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
+})();
+</script>
