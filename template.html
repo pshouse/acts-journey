@@ -102,6 +102,11 @@ button { font: inherit; color: inherit; }
 }
 .btn:hover:not(:disabled) { border-color: var(--ink); }
 .btn:disabled { opacity: .45; cursor: default; }
+#narr { margin-left: 8px; }
+#narr[aria-pressed="false"] { color: var(--muted); }
+.btns { flex-wrap: wrap; }
+.vol { display: flex; align-items: center; gap: 8px; }
+.vol input { width: 110px; accent-color: var(--ink); }
 .btn.primary { background: var(--ink); color: var(--page); border-color: var(--ink); min-width: 86px; }
 :focus-visible { outline: 2px solid var(--out); outline-offset: 2px; }
 .counter { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -208,8 +213,13 @@ a:hover { color: var(--out); }
           <button class="btn" id="prev" type="button">Back</button>
           <button class="btn primary" id="play" type="button">Play</button>
           <button class="btn" id="next" type="button">Next</button>
+          <button class="btn" id="narr" type="button" aria-pressed="true" title="Read each stop aloud while playing">Narration on</button>
         </div>
         <span class="counter" id="counter"></span>
+        <div class="vol" id="vol" hidden>
+          <button class="btn" id="mute" type="button" aria-pressed="false">Mute</button>
+          <input type="range" id="volume" min="0" max="100" step="1" value="100" aria-label="Narration volume">
+        </div>
         <div class="legend" aria-hidden="true">
           <span><i></i>Outbound</span><span><i class="back"></i>Return</span><span><i class="sea"></i>By sea</span>
         </div>
@@ -571,16 +581,83 @@ a:hover { color: var(--out); }
     raf = requestAnimationFrame(frame);
   }
 
-  function stop() { playing = false; clearTimeout(timer); playB.textContent = 'Play'; }
-  function advance() {
-    if (!playing) return;
-    if (cur >= STEPS.length - 1) { stop(); return; }
-    show(cur + 1, true, function () { timer = setTimeout(advance, cur >= STEPS.length - 1 ? 0 : 3200); });
+  // Play mode: each stop is read aloud (audio/01.mp3 … 13.mp3), and the journey moves on when the reading ends.
+  var narrB = document.getElementById('narr'), narrate = true, audio = new Audio(), run = 0, timer2 = 0;
+  try { if (localStorage.getItem('narration') === 'off') narrate = false; } catch (e) {}
+  function syncNarr() { narrB.setAttribute('aria-pressed', narrate); narrB.textContent = narrate ? 'Narration on' : 'Narration off'; }
+  syncNarr();
+  var volBox = document.getElementById('vol'), muteB = document.getElementById('mute'), volIn = document.getElementById('volume');
+  try {
+    var sv = parseInt(localStorage.getItem('volume'), 10);
+    if (sv >= 0 && sv <= 100) volIn.value = sv;
+    if (localStorage.getItem('muted') === '1') audio.muted = true;
+  } catch (e) {}
+  function syncVol() {                         // shown only while playing with narration on
+    volBox.hidden = !(playing && narrate);
+    audio.volume = volIn.value / 100;
+    muteB.setAttribute('aria-pressed', audio.muted);
+    muteB.textContent = audio.muted ? 'Unmute' : 'Mute';
+  }
+  muteB.addEventListener('click', function () {
+    audio.muted = !audio.muted;
+    try { localStorage.setItem('muted', audio.muted ? '1' : '0'); } catch (e) {}
+    syncVol();
+  });
+  volIn.addEventListener('input', function () {
+    if (audio.muted && +volIn.value > 0) audio.muted = false;
+    try { localStorage.setItem('volume', volIn.value); localStorage.setItem('muted', audio.muted ? '1' : '0'); } catch (e) {}
+    syncVol();
+  });
+  syncVol();
+  narrB.addEventListener('click', function () {
+    narrate = !narrate; syncNarr();
+    try { localStorage.setItem('narration', narrate ? 'on' : 'off'); } catch (e) {}
+    if (playing) { var i = cur; stop(); playing = true; playB.textContent = 'Pause'; playStep(i, false, !narrate); }
+    syncVol();
+  });
+  function stop() {
+    playing = false; run++; clearTimeout(timer); clearTimeout(timer2);
+    audio.onended = audio.onerror = null; audio.pause();
+    playB.textContent = 'Play';
+    syncVol();
+  }
+  function playStep(i, animate, first) {
+    var mine = ++run, arrived = false, spoken = !narrate, last = STEPS.length - 1;
+    function maybe() {
+      if (mine !== run || !playing || !arrived || !spoken) return;
+      if (i >= last) { stop(); return; }
+      timer = setTimeout(function () { if (mine === run) playStep(i + 1, true); }, narrate ? 700 : (first ? 0 : 3200));
+    }
+    function silent() {                       // no audio available: fall back to a timed pause
+      if (mine !== run) return;
+      audio.onended = audio.onerror = null;
+      timer2 = setTimeout(function () { spoken = true; maybe(); }, 3200);
+    }
+    show(i, animate, function () { arrived = true; maybe(); });
+    if (narrate) {
+      audio.onended = function () { spoken = true; maybe(); };
+      var url = 'audio/' + (i < 9 ? '0' : '') + (i + 1) + '.mp3', retried = false;
+      var viaBlob = function () {              // direct load refused: fetch the clip and play it from memory
+        if (mine !== run) return;
+        if (retried) { silent(); return; }
+        retried = true;
+        fetch(url).then(function (r) { if (!r.ok) throw 0; return r.blob(); }).then(function (b) {
+          if (mine !== run) return;
+          audio.src = URL.createObjectURL(b);
+          var q = audio.play();
+          if (q && q.catch) q.catch(silent);
+        }).catch(silent);
+      };
+      audio.onerror = viaBlob;
+      audio.src = url;
+      var p = audio.play();
+      if (p && p.catch) p.catch(viaBlob);
+    }
   }
   playB.addEventListener('click', function () {
     if (playing) { stop(); return; }
-    playing = true; playB.textContent = 'Pause';
-    if (cur >= STEPS.length - 1) { show(0, false); timer = setTimeout(advance, 1200); } else advance();
+    playing = true; playB.textContent = 'Pause'; syncVol();
+    playStep(cur >= STEPS.length - 1 ? 0 : cur, false, true);
   });
   nextB.addEventListener('click', function () { stop(); if (cur < STEPS.length - 1) show(cur + 1, true); });
   prevB.addEventListener('click', function () { stop(); if (cur > 0) show(cur - 1, false); });
